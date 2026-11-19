@@ -18,7 +18,7 @@
 </section><noscript><p>Enable JavaScript to browse the carousel. You can still open the featured artwork above.</p></noscript></main>
 <footer><span>GALACTAWEED / A COMIC IN THE MAKING</span><span>CREATED BY DRIIIPTV</span></footer>
 <script>
-const slides=[
+const featuredSlides=[
 ['4ED135A4-F94F-4B8A-968B-F815C043CF59.png','Cosmic traveler','CHARACTER ART','Green hair, a star-filled sky, and a universe waiting to unfold.','Green-haired character against a colorful cosmic background'],
 ['9707411A-E9E9-402F-9990-FB30D91934E5.png','Between the pages','CHARACTER ART','A quiet moment with a glowing book beneath the stars.','Green-haired character reading a book surrounded by stars and plants'],
 ['0A4D05D4-968A-474B-9D69-E29E904EF1B7.png','A world in motion','COMIC ART','Explore the original panels. Open the full-size image for a closer read.','Comic page featuring a red-haired woman and brightly armored characters'],
@@ -30,9 +30,45 @@ const slides=[
 ['IMG_8347.jpeg','A colorful encounter','COMIC ART','Meet more faces from the comic, one panel at a time.','Comic page with a purple-haired alien, a group of characters, and a boy'],
 ['IMG_8348.jpeg','Beyond the ordinary','COMIC ART','Step deeper into the illustrated world. Tap to explore the original.','Comic page featuring plants, a green-haired reader, and an alien']
 ];
-let current=0;const $=id=>document.getElementById(id);const thumbs=slides.map((s,i)=>{const b=document.createElement('button');b.className='thumb';b.type='button';b.setAttribute('aria-label',`Show artwork ${i+1}: ${s[1]}`);b.setAttribute('aria-pressed',String(i===0));const img=document.createElement('img');img.src=s[0];img.alt='';img.loading='lazy';b.append(img);b.addEventListener('click',()=>show(i));$('thumbs').append(b);return b});
-function show(index){current=(index+slides.length)%slides.length;const s=slides[current];$('error').hidden=true;$('art').src=s[0];$('art').alt=s[4];$('artLink').href=s[0];$('original').href=s[0];$('title').textContent=s[1];$('kind').textContent=s[2];$('description').textContent=s[3];$('count').textContent=String(current+1).padStart(2,'0')+' / '+slides.length;thumbs.forEach((b,i)=>b.setAttribute('aria-pressed',String(i===current)));$('announce').textContent=`Artwork ${current+1} of ${slides.length}: ${s[1]}`;}
+let slides=[];let thumbs=[];let current=0;
+const $=id=>document.getElementById(id);
+const fileName=path=>decodeURIComponent(path.split('/').pop().replace(/\.[^.]+$/,'').replace(/[-_]+/g,' ')).replace(/\b\w/g,c=>c.toUpper());
+function slideFromPath(path){
+ const known=featuredSlides.find(s=>s[0]===path);
+ if(known)return known;
+ const title=fileName(path);
+ return [path,title,'ORIGINAL ARTWORK','From the GalactaWeed archive. Open the full-size artwork for a closer view.',title];
+}
+function renderThumbs(){
+ $('thumbs').replaceChildren();
+ thumbs=slides.map((s,i)=>{
+  const b=document.createElement('button');b.className='thumb';b.type='button';
+  b.setAttribute('aria-label',`Show artwork ${i+1}: ${s[1]}`);b.setAttribute('aria-pressed',String(i===0));
+  const img=document.createElement('img');img.src=encodeURI(s[0]);img.alt='';img.loading='lazy';
+  b.append(img);b.addEventListener('click',()=>show(i));$('thumbs').append(b);return b;
+ });
+}
+function show(index){if(!slides.length)return;current=(index+slides.length)%slides.length;const s=slides[current];$('error').hidden=true;$('art').src=encodeURI(s[0]);$('art').alt=s[4];$('artLink').href=encodeURI(s[0]);$('original').href=encodeURI(s[0]);$('title').textContent=s[1];$('kind').textContent=s[2];$('description').textContent=s[3];$('count').textContent=String(current+1).padStart(2,'0')+' / '+slides.length;thumbs.forEach((b,i)=>b.setAttribute('aria-pressed',String(i===current)));$('announce').textContent=`Artwork ${current+1} of ${slides.length}: ${s[1]}`;}
+async function discoverPhotos(){
+ try{
+  const response=await fetch('./photos.json',{cache:'no-store'});
+  if(!response.ok)throw new Error('Manifest unavailable');
+  const paths=await response.json();
+  if(!Array.isArray(paths)||!paths.length)throw new Error('Manifest is empty');
+  slides=paths.map(slideFromPath);
+ }catch(error){
+  try{
+   const repoResponse=await fetch('https://api.github.com/repos/driiiptv/galactaweed-/git/trees/main?recursive=1');
+   if(!repoResponse.ok)throw new Error('Repository unavailable');
+   const tree=await repoResponse.json();
+   const paths=(tree.tree||[]).filter(item=>item.type==='blob'&&/\.(jpe?g|png|gif|webp|avif)$/i.test(item.path)).map(item=>item.path).sort();
+   if(paths.length)slides=paths.map(slideFromPath);
+  }catch(apiError){slides=featuredSlides;}
+ }
+ renderThumbs();show(0);
+}
 $('art').addEventListener('error',()=>{$('error').hidden=false});$('prev').addEventListener('click',()=>show(current-1));$('next').addEventListener('click',()=>show(current+1));document.addEventListener('keydown',e=>{if(e.altKey||e.ctrlKey||e.metaKey)return;if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();show(current+(e.key==='ArrowRight'?1:-1))}});
 let start=null,suppressClick=false;$('artLink').addEventListener('touchstart',e=>{if(e.touches.length===1)start={x:e.touches[0].clientX,y:e.touches[0].clientY};else start=null},{passive:true});$('artLink').addEventListener('touchend',e=>{if(!start)return;const t=e.changedTouches[0],dx=t.clientX-start.x,dy=t.clientY-start.y;if(Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.5){show(current+(dx<0?1:-1));suppressClick=true;setTimeout(()=>suppressClick=false,500)}start=null},{passive:true});$('artLink').addEventListener('touchcancel',()=>start=null);$('artLink').addEventListener('click',e=>{if(suppressClick){e.preventDefault();suppressClick=false}});
+discoverPhotos();
 </script>
 </body></html>
